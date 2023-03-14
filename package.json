@@ -1,0 +1,22 @@
+{
+  "name": "git-remote-punch",
+  "version": "1.0.0",
+  "description": "Git over holepunch remote helper.",
+  "bin": {
+    "git-remote-punch": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "fix": "standard --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "standard": "^17.0.0"
+  },
+  "dependencies": {
+    "git-remote-helper": "^0.4.0",
+    "simple-hyperproxy": "^0.0.3"
+  }
+}
