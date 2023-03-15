@@ -6,14 +6,10 @@ const readline = require('readline')
 const c = require('compact-encoding')
 const { refsList, packRequest } = require('./lib/messages.js')
 
-let rl = null
-
 const argv = process.argv.slice(0)
 const url = argv[3]
 const key = url.substr(8, 64)
 const repository = url.substr(72)
-
-const wanted = []
 
 const capabilities = () => {
   process.stdout.write('connect\n\n')
@@ -35,15 +31,15 @@ const connect = async (line) => {
   }
 }
 
-async function uploadPack () {
+async function uploadPack (wantedRefs) {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
-  const refs = wanted.map(e => ({ id: e }))
+  const refs = wantedRefs.map(e => ({ id: e }))
   const pack = await client.request('pack-request', c.encode(packRequest, { repository, refs }))
 
-  while (wanted.length) {
-    const id = wanted.pop()
-    const ack = `ACK ${id}${wanted.length ? ' continue\n' : '\n'}`
+  while (wantedRefs.length) {
+    const id = wantedRefs.pop()
+    const ack = `ACK ${id}${wantedRefs.length ? ' continue\n' : '\n'}`
     process.stdout.write(formatMessage(ack))
   }
 
@@ -65,8 +61,8 @@ function formatMessage (message) {
 
 const main = async (args) => {
   const crlfDelay = 30000
-  rl = readline.createInterface({ input: process.stdin, crlfDelay })
-  for await (const line of rl) {
+  const wantedRefs = []
+  for await (const line of readline.createInterface({ input: process.stdin, crlfDelay })) {
     const command = line.split(' ')[0]
     switch (command) {
       case 'capabilities':
@@ -79,13 +75,13 @@ const main = async (args) => {
         await connect(line)
         break
       case '0032want':
-        wanted.push(line.split(' ')[1])
+        wantedRefs.push(line.split(' ')[1])
         break
       case '00000009done':
-        uploadPack()
+        uploadPack(wantedRefs)
         break
       case '0009done':
-        uploadPack()
+        uploadPack(wantedRefs)
     }
   }
 }

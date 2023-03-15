@@ -1,5 +1,5 @@
 const b4a = require('b4a')
-const { crypto_generichash } = require('sodium-universal')
+const { crypto_generichash } = require('sodium-universal') // eslint-disable-line
 const c = require('compact-encoding')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('@hyperswarm/dht')
