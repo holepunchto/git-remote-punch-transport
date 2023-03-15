@@ -49,7 +49,7 @@ const connect = async (line) => {
   }
 }
 
-async function sendPack () {
+async function uploadPack() {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const refs = wanted.map(e => ({ id: e }))
@@ -61,7 +61,11 @@ async function sendPack () {
     process.stdout.write(formatMessage(ack))
   }
 
-  process.stdout.write(pack)
+  const chunkSize = 64
+  for (let i = 0; i < pack.length / chunkSize; i++ ){
+    process.stdout.write(pack.slice(i * chunkSize, i * chunkSize + chunkSize))
+  }
+
   const checksum = crypto.createHash('sha1').update(pack).digest('hex')
   process.stdout.write(checksum + '\n')
   process.exit()
@@ -92,10 +96,10 @@ const main = async (args) => {
         wanted.push(line.split(' ')[1])
         break
       case '00000009done':
-        sendPack()
+        uploadPack()
         break
       case '0009done':
-        sendPack()
+        uploadPack()
     }
   }
 }
