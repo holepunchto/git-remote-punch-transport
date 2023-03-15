@@ -30,7 +30,7 @@ const packRequest = compile({
 })
 
 const capabilities = () => {
-  console.log('connect\n')
+  process.stdout.write('connect\n\n')
 }
 
 const connect = async (line) => {
