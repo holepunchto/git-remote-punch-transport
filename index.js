@@ -49,7 +49,7 @@ const connect = async (line) => {
   }
 }
 
-async function uploadPack() {
+async function uploadPack () {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const refs = wanted.map(e => ({ id: e }))
@@ -62,7 +62,7 @@ async function uploadPack() {
   }
 
   const chunkSize = 64
-  for (let i = 0; i < pack.length / chunkSize; i++ ){
+  for (let i = 0; i < pack.length / chunkSize; i++) {
     process.stdout.write(pack.slice(i * chunkSize, i * chunkSize + chunkSize))
   }
 
