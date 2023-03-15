@@ -43,7 +43,7 @@ async function uploadPack (wantedRefs) {
     process.stdout.write(formatMessage(ack))
   }
 
-  const chunkSize = 8
+  const chunkSize = 2
   for (let i = 0; i < pack.length / chunkSize; i++) {
     process.stdout.write(pack.slice(i * chunkSize, i * chunkSize + chunkSize))
   }
@@ -82,6 +82,12 @@ const main = async (args) => {
         break
       case '0009done':
         uploadPack(wantedRefs)
+      break
+    case '00000032have':
+        uploadPack(wantedRefs)
+      break
+    case '0000':
+      process.exit()
     }
   }
 }
