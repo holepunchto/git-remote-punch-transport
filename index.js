@@ -18,17 +18,49 @@ const capabilities = () => {
 const connect = async (line) => {
   const subcommand = line.split(' ')[1]
   if (subcommand === 'git-upload-pack') { // pull or clone
-    const rpc = new RPC()
-    const client = rpc.connect(Buffer.from(key, 'hex'))
-    const response = await client.request('list', Buffer.from(repository))
-    const { refs } = c.decode(refsList, response)
-    process.stdout.write('\n') // conexcion ready
-    refs.forEach(ref => {
-      const message = `${ref.id} ${ref.name}\n`
-      process.stdout.write(formatMessage(message))
-    })
-    process.stdout.write('0000') // done
+    await pull()
   }
+  if (subcommand === 'git-receive-pack') { // push
+    await push()
+  }
+}
+
+async function push () {
+  const rpc = new RPC()
+  const client = rpc.connect(Buffer.from(key, 'hex'))
+  const bypassKey = await client.request('push-request', Buffer.alloc(0))
+
+  const proxy = new SimpleHyperProxy()
+  const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
+
+  const cmd = spawn('git', ['send-pack', '--all', `git://127.0.0.1:${port}${repository}`])
+
+  cmd.stdout.on('data', async data => {
+    process.stderr.write(data.toString()) // process.stdout communicates with the git parent process, use stderr to echo
+    if (data.toString()[data.toString().length - 1] === EOL) {
+      process.exit()
+    }
+  })
+
+  cmd.stderr.on('data', async data => {
+    process.stderr.write(data.toString())
+    if (data.toString()[data.toString().length - 1] === EOL) {
+      process.exit()
+    }
+  })
+}
+
+async function pull () {
+  const rpc = new RPC()
+  const client = rpc.connect(Buffer.from(key, 'hex'))
+  const response = await client.request('list', Buffer.from(repository))
+  const { refs } = c.decode(refsList, response)
+  process.stdout.write('\n') // conexcion ready
+  refs.forEach(ref => {
+    const message = `${ref.id} ${ref.name}\n`
+    process.stdout.write(formatMessage(message))
+  })
+  process.stdout.write('0000') // done
 }
 
 async function uploadPack (wantedRefs) {
@@ -82,12 +114,12 @@ const main = async (args) => {
         break
       case '0009done':
         uploadPack(wantedRefs)
-      break
-    case '00000032have':
+        break
+      case '00000032have':
         uploadPack(wantedRefs)
-      break
-    case '0000':
-      process.exit()
+        break
+      case '0000':
+        process.exit()
     }
   }
 }

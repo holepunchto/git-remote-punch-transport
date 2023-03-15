@@ -3,16 +3,26 @@ const { crypto_generichash } = require('sodium-universal') // eslint-disable-lin
 const c = require('compact-encoding')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('@hyperswarm/dht')
+const net = require('net')
 const { execSync } = require('child_process')
 const { writeFileSync, readFileSync } = require('fs')
 const { tmpdir } = require('os')
 const { join } = require('path')
 const { refsList, packRequest } = require('../lib/messages.js')
+const { pipeline } = require('streamx')
+
+const GIT_PROTOCOL_PORT = 9418
 
 module.exports = async (seed) => {
   const keyPair = DHT.keyPair(hash(Buffer.from(seed)))
-  const rpc = new RPC({ keyPair })
-  const server = rpc.createServer()
+  const bypassKeyPair = DHT.keyPair()
+  const server = new RPC({ keyPair }).createServer()
+
+  const bypass = new DHT().createServer()
+  bypass.on('connection', (socket) => {
+    const gitTcpSocket = net.connect(GIT_PROTOCOL_PORT)
+    pipeline(socket, gitTcpSocket, socket)
+  })
 
   server.respond('list', (req) => {
     const repository = req.toString()
@@ -26,7 +36,13 @@ module.exports = async (seed) => {
     return blob
   })
 
+  server.respond('push-request', async (req) => {
+    return bypassKeyPair.publicKey
+  })
+
   await server.listen(keyPair)
+  await bypass.listen(bypassKeyPair)
+
   return keyPair.publicKey
 }
 
