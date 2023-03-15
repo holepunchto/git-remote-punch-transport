@@ -7,7 +7,7 @@ const { execSync } = require('child_process')
 const { writeFileSync, readFileSync } = require('fs')
 const { tmpdir } = require('os')
 const { join } = require('path')
-const { refsList, packRequest } = require('./lib/messages.js')
+const { refsList, packRequest } = require('../lib/messages.js')
 
 module.exports = async (seed) => {
   const keyPair = DHT.keyPair(hash(Buffer.from(seed)))
