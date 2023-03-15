@@ -61,7 +61,7 @@ async function uploadPack () {
     process.stdout.write(formatMessage(ack))
   }
 
-  const chunkSize = 32
+  const chunkSize = 8
   for (let i = 0; i < pack.length / chunkSize; i++) {
     process.stdout.write(pack.slice(i * chunkSize, i * chunkSize + chunkSize))
   }
