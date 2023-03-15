@@ -4,30 +4,16 @@ const RPC = require('@hyperswarm/rpc')
 const crypto = require('crypto')
 const readline = require('readline')
 const c = require('compact-encoding')
-const { compile, opt } = require('compact-encoding-struct')
+const { refsList, packRequest } = require('./lib/messages.js')
 
 let rl = null
 
 const argv = process.argv.slice(0)
 const url = argv[3]
-const key = url.split(':')[1].substr(2)
-const repository = url.split(':')[2]
+const key = url.substr(8, 64)
+const repository = url.substr(72)
 
 const wanted = []
-
-const ref = compile({
-  name: opt(c.string),
-  id: c.string
-})
-
-const refsList = compile({
-  refs: c.array(ref)
-})
-
-const packRequest = compile({
-  repository: c.string,
-  refs: c.array(ref)
-})
 
 const capabilities = () => {
   process.stdout.write('connect\n\n')

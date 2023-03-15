@@ -1,27 +1,13 @@
 const b4a = require('b4a')
 const { crypto_generichash } = require('sodium-universal')
 const c = require('compact-encoding')
-const { compile, opt } = require('compact-encoding-struct')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('@hyperswarm/dht')
 const { execSync } = require('child_process')
 const { writeFileSync, readFileSync } = require('fs')
 const { tmpdir } = require('os')
 const { join } = require('path')
-
-const ref = compile({
-  name: opt(c.string),
-  id: c.string
-})
-
-const refsList = compile({
-  refs: c.array(ref)
-})
-
-const packRequest = compile({
-  repository: c.string,
-  refs: c.array(ref)
-})
+const { refsList, packRequest } = require('./lib/messages.js')
 
 module.exports = async (seed) => {
   const keyPair = DHT.keyPair(hash(Buffer.from(seed)))
@@ -61,8 +47,8 @@ function pack (repository, oids) {
   const objects = execSync(`git rev-list --objects ${refs.join(' ')}`, { cwd: repository }).toString()
     .trim().split('\n').map(e => e.trim().split(' ')[0])
 
-  const objectsToPack = join(tmpdir(),(Math.random() + 1).toString(36).substring(7))
-  const pack = join(tmpdir(),(Math.random() + 1).toString(36).substring(7))
+  const objectsToPack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
+  const pack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
   writeFileSync(objectsToPack, objects.join('\n'))
   execSync(`cat ${objectsToPack} | git pack-objects --stdout > ${pack}`, { cwd: repository })
   return readFileSync(pack)
