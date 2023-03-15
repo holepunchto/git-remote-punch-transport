@@ -5,6 +5,9 @@ const { compile, opt } = require('compact-encoding-struct')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('@hyperswarm/dht')
 const { execSync } = require('child_process')
+const { writeFileSync, readFileSync } = require('fs')
+const { tmpdir } = require('os')
+const { join } = require('path')
 
 const ref = compile({
   name: opt(c.string),
@@ -57,7 +60,12 @@ function pack (repository, oids) {
   const refs = getRefs(repository).filter(e => oids.indexOf(e.id) !== -1).map(e => e.name)
   const objects = execSync(`git rev-list --objects ${refs.join(' ')}`, { cwd: repository }).toString()
     .trim().split('\n').map(e => e.trim().split(' ')[0])
-  return execSync(`printf "${objects.join('\\n')}" | git pack-objects --stdout`, { cwd: repository })
+
+  const objectsToPack = join(tmpdir(),(Math.random() + 1).toString(36).substring(7))
+  const pack = join(tmpdir(),(Math.random() + 1).toString(36).substring(7))
+  writeFileSync(objectsToPack, objects.join('\n'))
+  execSync(`cat ${objectsToPack} | git pack-objects --stdout > ${pack}`, { cwd: repository })
+  return readFileSync(pack)
 }
 
 function hash (data) {
