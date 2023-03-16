@@ -1,6 +1,6 @@
 {
   "name": "git-remote-punch",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Git over holepunch remote helper.",
   "bin": {
     "git-punch-server": "./server/bin.mjs",

@@ -21,6 +21,7 @@ module.exports = class GitPunchServer extends ReadyResource {
     this._bypassKeyPair = DHT.keyPair()
     this._server = new RPC({ keyPair: this.keyPair, ...opts }).createServer()
     this._bypass = new DHT(opts).createServer()
+    this.basedir = opts.basedir || '/'
 
     this._bypass.on('connection', (socket) => {
       const gitTcpSocket = net.connect(GIT_PROTOCOL_PORT)
@@ -29,19 +30,46 @@ module.exports = class GitPunchServer extends ReadyResource {
 
     this._server.respond('list', (req) => {
       const repository = req.toString()
-      const refs = getRefs(repository)
+      const refs = this.getRefs(repository)
       return c.encode(refsList, { refs })
     })
 
     this._server.respond('pack-request', async (req) => {
       const { repository, refs } = c.decode(packRequest, req)
-      const blob = pack(repository, refs.map(e => e.id))
+      const blob = this.pack(repository, refs.map(e => e.id))
       return blob
     })
 
     this._server.respond('push-request', async (req) => {
       return this.bypassKeyPair.publicKey
     })
+  }
+
+  getRefs (repository) {
+    try {
+      const cwd = join(this.basedir, repository)
+      const head = execSync('git rev-parse HEAD', { cwd }).toString().trim()
+      const list = execSync('git show-ref', { cwd }).toString().split('\n')
+      list.pop() // remove empty line
+      return [{ name: 'HEAD', id: head }].concat(list.map(e => ({ name: e.split(' ')[1], id: e.split(' ')[0] })))
+    } catch (err) {
+      console.log(err)
+      return []
+    }
+  }
+
+  pack (repository, oids) {
+    const cwd = join(this.basedir, repository)
+    const refs = this.getRefs(repository).filter(e => oids.indexOf(e.id) !== -1).map(e => e.name)
+    if (refs.find(ref => ref !== 'HEAD' && ref.indexOf('refs') !== 0)) return // sanitize received refs, avoids code injection
+    const objects = execSync(`git rev-list --objects ${refs.join(' ')}`, { cwd }).toString()
+      .trim().split('\n').map(e => e.trim().split(' ')[0])
+
+    const objectsToPack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
+    const pack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
+    writeFileSync(objectsToPack, objects.join('\n'))
+    execSync(`cat ${objectsToPack} | git pack-objects --stdout > ${pack}`, { cwd })
+    return readFileSync(pack)
   }
 
   async _open () {
@@ -53,30 +81,6 @@ module.exports = class GitPunchServer extends ReadyResource {
     await this._server.close()
     await this._bypass.close()
   }
-}
-
-function getRefs (repository) {
-  try {
-    const head = execSync('git rev-parse HEAD', { cwd: repository }).toString().trim()
-    const list = execSync('git show-ref', { cwd: repository }).toString().split('\n')
-    list.pop() // remove empty line
-    return [{ name: 'HEAD', id: head }].concat(list.map(e => ({ name: e.split(' ')[1], id: e.split(' ')[0] })))
-  } catch (err) {
-    console.log(err)
-    return []
-  }
-}
-
-function pack (repository, oids) {
-  const refs = getRefs(repository).filter(e => oids.indexOf(e.id) !== -1).map(e => e.name)
-  const objects = execSync(`git rev-list --objects ${refs.join(' ')}`, { cwd: repository }).toString()
-    .trim().split('\n').map(e => e.trim().split(' ')[0])
-
-  const objectsToPack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
-  const pack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
-  writeFileSync(objectsToPack, objects.join('\n'))
-  execSync(`cat ${objectsToPack} | git pack-objects --stdout > ${pack}`, { cwd: repository })
-  return readFileSync(pack)
 }
 
 function hash (data) {

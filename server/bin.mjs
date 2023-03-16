@@ -13,8 +13,9 @@ const commands = [
         process.exit(0)
       } else {
         const seed = process.argv.slice()[2]
-        const bootstrap = [{ host: '127.0.0.1', port: 49736 }]
-        const server = new GitPunchServer(seed, { bootstrap })
+        const bootstrap = args.bootstrap ? args.bootstrap.split(',').map(e => ({ host: e.split(':')[0], port: parseInt(e.split(':')[1]) })) : null
+        const basedir = args.basedir
+        const server = new GitPunchServer(seed, { bootstrap, basedir })
         await server.ready()
         console.log(`Listening on key: ${ansi.bold(server.keyPair.publicKey.toString('hex'))}`)
       }
@@ -27,6 +28,10 @@ const commands = [
       {
         name: 'bootstrap',
         abbr: 'b'
+      },
+      {
+        name: 'basedir',
+        abbr: 'd'
       },
       {
         name: 'help',
@@ -47,12 +52,14 @@ if (!matched) {
 
 function printHelp () {
   console.log(`
-${ansi.bold('Git Punch Server')}
-Version: 0.1.0
+  ${ansi.bold('Git-Punch Server')}
+  Version: 0.1.0
 
-  Usage:
+  ${ansi.italic('git-punch-server start [--seed <key-pair-seed>] [--bootstrap <bootstrap-url>] [--basedir <directory>]')}
 
-  git-punch-server start [--seed=<key-pair-seed>] [--bootstrap=<bootstrap-url>]
+  ${ansi.bold('seed')}: Sets dht server key pair seed.
+  ${ansi.bold('bootstrap')}: Sets dht bootstrap server.
+  ${ansi.bold('basedir')}: Sets repositories base directory, example: ${ansi.dim('--basedir /tmp')} converts /tmp/repo into /repo
 
 `)
   process.exit()
