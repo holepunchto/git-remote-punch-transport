@@ -13,24 +13,26 @@ const { pipeline } = require('streamx')
 
 const GIT_PROTOCOL_PORT = 9418
 
-module.exports = async (seed) => {
+module.exports = async (seed, opts) => {
   const keyPair = DHT.keyPair(hash(Buffer.from(seed)))
   const bypassKeyPair = DHT.keyPair()
-  const server = new RPC({ keyPair }).createServer()
+  const server = new RPC({ keyPair, ...opts }).createServer()
 
-  const bypass = new DHT().createServer()
+  const bypass = new DHT(opts).createServer()
   bypass.on('connection', (socket) => {
     const gitTcpSocket = net.connect(GIT_PROTOCOL_PORT)
     pipeline(socket, gitTcpSocket, socket)
   })
 
   server.respond('list', (req) => {
+    console.log('!!!!!!!!!!!!!!!!!!!!!!')
     const repository = req.toString()
     const refs = getRefs(repository)
     return c.encode(refsList, { refs })
   })
 
   server.respond('pack-request', async (req) => {
+    console.log('pack request')
     const { repository, refs } = c.decode(packRequest, req)
     const blob = pack(repository, refs.map(e => e.id))
     return blob

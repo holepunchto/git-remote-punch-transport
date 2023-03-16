@@ -7,13 +7,14 @@
     "git-remote-punch": "./index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "brittle test/index.test.js",
     "fix": "standard --fix"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "brittle": "^3.2.1",
     "standard": "^17.0.0"
   },
   "dependencies": {

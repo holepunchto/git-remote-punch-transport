@@ -5,6 +5,9 @@ const crypto = require('crypto')
 const readline = require('readline')
 const c = require('compact-encoding')
 const { refsList, packRequest } = require('./lib/messages.js')
+const { EOL } = require('os')
+const { spawn } = require('child_process')
+const SimpleHyperProxy = require('simple-hyperproxy')
 
 const argv = process.argv.slice(0)
 const url = argv[3]
@@ -14,6 +17,9 @@ const repository = url.substr(72)
 const capabilities = () => {
   process.stdout.write('connect\n\n')
 }
+
+const bootstrap = [{ host: '127.0.0.1', port: 49736 }]
+const opts = { bootstrap }
 
 const connect = async (line) => {
   const subcommand = line.split(' ')[1]
@@ -26,11 +32,11 @@ const connect = async (line) => {
 }
 
 async function push () {
-  const rpc = new RPC()
+  const rpc = new RPC(opts)
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const bypassKey = await client.request('push-request', Buffer.alloc(0))
 
-  const proxy = new SimpleHyperProxy()
+  const proxy = new SimpleHyperProxy(opts)
   const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
 
   const cmd = spawn('git', ['send-pack', '--all', `git://127.0.0.1:${port}${repository}`])
@@ -51,7 +57,7 @@ async function push () {
 }
 
 async function pull () {
-  const rpc = new RPC()
+  const rpc = new RPC(opts)
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const response = await client.request('list', Buffer.from(repository))
   const { refs } = c.decode(refsList, response)
@@ -64,7 +70,7 @@ async function pull () {
 }
 
 async function uploadPack (wantedRefs) {
-  const rpc = new RPC()
+  const rpc = new RPC({ bootstrap }) // TODO refactor
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const refs = wantedRefs.map(e => ({ id: e }))
   const pack = await client.request('pack-request', c.encode(packRequest, { repository, refs }))
@@ -119,6 +125,10 @@ const main = async (args) => {
         uploadPack(wantedRefs)
         break
       case '0000':
+        process.exit()
+        break
+      default:
+        console.error('Unexpected message:', line)
         process.exit()
     }
   }
