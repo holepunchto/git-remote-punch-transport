@@ -70,7 +70,7 @@ async function pull () {
 }
 
 async function uploadPack (wantedRefs) {
-  const rpc = new RPC({ bootstrap }) // TODO refactor
+  const rpc = new RPC(opts) // TODO refactor
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const refs = wantedRefs.map(e => ({ id: e }))
   const pack = await client.request('pack-request', c.encode(packRequest, { repository, refs }))
