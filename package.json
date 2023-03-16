@@ -26,6 +26,7 @@
     "ready-resource": "^1.0.0",
     "simple-hyperproxy": "^0.0.4",
     "sodium-universal": "^4.0.0",
-    "streamx": "^2.13.2"
+    "streamx": "^2.13.2",
+    "subcommand": "^2.1.1"
   }
 }

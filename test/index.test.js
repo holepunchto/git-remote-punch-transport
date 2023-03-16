@@ -1,6 +1,5 @@
 const createTestnet = require('@hyperswarm/testnet')
 const test = require('brittle')
-const serverListen = require('../server/index.js')
 const { tmpdir } = require('os')
 const { join } = require('path')
 const { execSync, spawn } = require('child_process')
