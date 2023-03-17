@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
+const { writeFileSync, readFileSync } = require('fs')
 const RPC = require('@hyperswarm/rpc')
-const crypto = require('crypto')
 const readline = require('readline')
 const c = require('compact-encoding')
-const { refsList, packRequest } = require('./lib/messages.js')
-const { EOL } = require('os')
+const { refsList } = require('./lib/messages.js')
 const { spawn } = require('child_process')
 const SimpleHyperProxy = require('simple-hyperproxy')
+const { dirname } = require('path')
 
 const argv = process.argv.slice(0)
 const url = argv[3]
@@ -15,20 +15,25 @@ const key = url.substr(8, 64)
 const repository = url.substr(72)
 
 const capabilities = () => {
-  process.stdout.write('connect\n\n')
+  process.stdout.write('option\nfetch\npush\nlist\n\n')
 }
 
-const connect = async (line) => {
-  const subcommand = line.split(' ')[1]
-  if (subcommand === 'git-upload-pack') { // pull or clone
-    await pull()
-  }
-  if (subcommand === 'git-receive-pack') { // push
-    await push()
-  }
+async function list () {
+  const rpc = new RPC()
+  const client = rpc.connect(Buffer.from(key, 'hex'))
+  const response = await client.request('list', Buffer.from(repository))
+  const { refs } = c.decode(refsList, response)
+  refs.forEach(ref => process.stdout.write(ref.id + ' ' + ref.name + '\n'))
+  process.stdout.write('\n')
+  return refs
 }
 
-async function push () {
+async function listForPush () {
+  // TODO
+  process.stdout.write('\n')
+}
+
+async function push (refs) {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const bypassKey = await client.request('push-request', Buffer.alloc(0))
@@ -36,93 +41,79 @@ async function push () {
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
 
-  const cmd = spawn('git', ['send-pack', '--all', `git://127.0.0.1:${port}${repository}`])
+  const cmd = spawn('git', ['send-pack', '--stdin', `git://127.0.0.1:${port}${repository}`])
+  refs.forEach(ref => cmd.stdin.write(`${ref.split(':')[1]}:${ref.split(':')[1]}\n`))
+  cmd.stdin.end()
 
-  cmd.stdout.on('data', async data => {
-    process.stderr.write(data.toString()) // process.stdout communicates with the git parent process, use stderr to echo
-    if (data.toString()[data.toString().length - 1] === EOL) {
-      process.exit()
-    }
+  cmd.stderr.on('data', async data => { // for some reason, git uses stderr for the normal output
+    process.stderr.write(data.toString())
   })
 
-  cmd.stderr.on('data', async data => {
-    process.stderr.write(data.toString())
-    if (data.toString()[data.toString().length - 1] === EOL) {
-      process.exit()
-    }
+  cmd.on('exit', () => {
+    refs.forEach(ref => {
+      process.stdout.write(`ok ${ref.split(':')[1]}\n`)
+    })
+    process.stdout.write('\n')
+    process.exit()
   })
 }
 
-async function pull () {
+async function fetch (refs) {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
-  const response = await client.request('list', Buffer.from(repository))
-  const { refs } = c.decode(refsList, response)
-  process.stdout.write('\n') // conexcion ready
-  refs.forEach(ref => {
-    const message = `${ref.id} ${ref.name}\n`
-    process.stdout.write(formatMessage(message))
+  const proxyKey = await client.request('push-request', Buffer.alloc(0))
+
+  const proxy = new SimpleHyperProxy()
+  const port = await proxy.bind(Buffer.from(proxyKey, 'hex'))
+
+  writeFileSync('/tmp/refs', refs.map(e => e.id).join('\n')) // TODO random name
+
+  const cmd = spawn('git', ['fetch-pack', '--stdin', `git://127.0.0.1:${port}${repository}`], { cwd: dirname(process.env.GIT_DIR) })
+  cmd.stdin.write(readFileSync('/tmp/refs'))
+  cmd.stdin.end()
+
+  cmd.stderr.on('data', async data => { // for some reason, git uses stderr for the normal output
+    process.stderr.write(data.toString())
   })
-  process.stdout.write('0000') // done
-}
 
-async function uploadPack (wantedRefs) {
-  const rpc = new RPC() // TODO refactor
-  const client = rpc.connect(Buffer.from(key, 'hex'))
-  const refs = wantedRefs.map(e => ({ id: e }))
-  const pack = await client.request('pack-request', c.encode(packRequest, { repository, refs }))
-
-  while (wantedRefs.length) {
-    const id = wantedRefs.pop()
-    const ack = `ACK ${id}${wantedRefs.length ? ' continue\n' : '\n'}`
-    process.stdout.write(formatMessage(ack))
-  }
-
-  const chunkSize = 2
-  for (let i = 0; i < pack.length / chunkSize; i++) {
-    process.stdout.write(pack.slice(i * chunkSize, i * chunkSize + chunkSize))
-  }
-
-  const checksum = crypto.createHash('sha1').update(pack).digest('hex')
-  process.stdout.write(checksum + '\n')
-  process.exit()
-}
-
-function formatMessage (message) {
-  const messageLength = (message.length + 4).toString(16)
-  const padding = '0'.repeat(4 - messageLength.length)
-  return (padding + messageLength + message)
+  cmd.on('exit', () => {
+    process.stdout.write('\n')
+    process.exit()
+  })
 }
 
 const main = async (args) => {
   const crlfDelay = 30000
+  let remoteRefs = []
   const wantedRefs = []
+  const pushRefs = []
+  let fetching = false
+  let pushing = false
   for await (const line of readline.createInterface({ input: process.stdin, crlfDelay })) {
+    console.error('line', line)
     const command = line.split(' ')[0]
     switch (command) {
       case 'capabilities':
         capabilities()
         break
       case 'option':
-        console.log(' \n')
+        process.stdout.write('ok\n')
         break
-      case 'connect':
-        await connect(line)
+      case 'list':
+        remoteRefs = line === 'list' ? await list() : listForPush()
         break
-      case '0032want':
-        wantedRefs.push(line.split(' ')[1])
+      case 'push':
+        pushing = true
+        pushRefs.push(line.split(' ')[1])
         break
-      case '00000009done':
-        uploadPack(wantedRefs)
+      case 'fetch':
+        fetching = true
+        wantedRefs.push(remoteRefs.find(ref => ref.name === line.split(' ')[2]))
         break
-      case '0009done':
-        uploadPack(wantedRefs)
-        break
-      case '00000032have':
-        uploadPack(wantedRefs)
-        break
-      case '0000':
-        process.exit()
+      case '':
+        if (fetching) fetch(wantedRefs)
+        else if (pushing) push(pushRefs)
+        else process.exit()
         break
       default:
         console.error('Unexpected message:', line)
