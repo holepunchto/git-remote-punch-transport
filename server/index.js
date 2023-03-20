@@ -4,10 +4,8 @@ const c = require('compact-encoding')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('@hyperswarm/dht')
 const { execSync } = require('child_process')
-const { writeFileSync, readFileSync } = require('fs')
-const { tmpdir } = require('os')
 const { join } = require('path')
-const { refsList, packRequest } = require('../lib/messages.js')
+const { refsList } = require('../lib/messages.js')
 const ReadyResource = require('ready-resource')
 const SimpleHyperProxy = require('simple-hyperproxy')
 
@@ -28,12 +26,6 @@ module.exports = class GitPunchServer extends ReadyResource {
       return c.encode(refsList, { refs })
     })
 
-    this._server.respond('pack-request', async (req) => {
-      const { repository, refs } = c.decode(packRequest, req)
-      const blob = this.pack(repository, refs.map(e => e.id))
-      return blob
-    })
-
     this._server.respond('push-request', async (req) => {
       return this._proxyPublicKey
     })
@@ -50,20 +42,6 @@ module.exports = class GitPunchServer extends ReadyResource {
       console.log(err)
       return []
     }
-  }
-
-  pack (repository, oids) {
-    const cwd = join(this.basedir, repository)
-    const refs = this.getRefs(repository).filter(e => oids.indexOf(e.id) !== -1).map(e => e.name)
-    if (refs.find(ref => ref !== 'HEAD' && ref.indexOf('refs') !== 0)) return // sanitize received refs, avoids code injection
-    const objects = execSync(`git rev-list --objects ${refs.join(' ')}`, { cwd }).toString()
-      .trim().split('\n').map(e => e.trim().split(' ')[0])
-
-    const objectsToPack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
-    const pack = join(tmpdir(), (Math.random() + 1).toString(36).substring(7))
-    writeFileSync(objectsToPack, objects.join('\n'))
-    execSync(`cat ${objectsToPack} | git pack-objects --stdout > ${pack}`, { cwd })
-    return readFileSync(pack)
   }
 
   async _open () {
