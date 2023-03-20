@@ -5,7 +5,7 @@ const RPC = require('@hyperswarm/rpc')
 const readline = require('readline')
 const c = require('compact-encoding')
 const { refsList } = require('./lib/messages.js')
-const { spawn } = require('child_process')
+const { spawn, execSync } = require('child_process')
 const SimpleHyperProxy = require('simple-hyperproxy')
 const { dirname } = require('path')
 
@@ -29,6 +29,22 @@ async function list () {
 }
 
 async function listForPush () {
+  const refs = execSync('git show-ref').toString().trim()
+  refs.split('\n').forEach(ref => {
+    const oid = ref.split(' ')[0]
+    const name = ref.split(' ')[1]
+
+    if (name.startsWith('refs/remote')) {
+      const isLocalRef = (ref, branchName) => {
+        return ref.split(' ')[1].split('/').pop() === branchName && ref.split(' ')[1].startsWith('refs/heads')
+      }
+      const branchName = name.split('/').pop()
+      const branch = refs.split('\n').find(e => isLocalRef(e, branchName)).split(' ')[1]
+
+      process.stdout.write(`${oid} ${branch}\n`) // echoes origin ref oid for local ref name, that means: push local ref to remote branch
+    }
+  })
+
   process.stdout.write('\n')
 }
 
