@@ -26,7 +26,7 @@ module.exports = class GitPunchServer extends ReadyResource {
       return c.encode(refsList, { refs })
     })
 
-    this._server.respond('push-request', async (req) => {
+    this._server.respond('proxy-key-request', async (req) => {
       return this._proxyPublicKey
     })
   }

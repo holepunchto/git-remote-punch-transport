@@ -8,6 +8,7 @@ const { refsList } = require('./lib/messages.js')
 const { spawn, execSync } = require('child_process')
 const SimpleHyperProxy = require('simple-hyperproxy')
 const { dirname } = require('path')
+const { join } = require('path')
 
 const argv = process.argv.slice(0)
 const url = argv[3]
@@ -36,12 +37,20 @@ async function listForPush () {
 
     if (name.startsWith('refs/remote')) {
       const isLocalRef = (ref, branchName) => {
+        if (branchName === 'HEAD') {
+          const head = readFileSync(join(process.env.GIT_DIR, 'HEAD')).toString()
+          return ref.split(' ')[1].indexOf(head) !== -1
+        }
         return ref.split(' ')[1].split('/').pop() === branchName && ref.split(' ')[1].startsWith('refs/heads')
       }
       const branchName = name.split('/').pop()
-      const branch = refs.split('\n').find(e => isLocalRef(e, branchName)).split(' ')[1]
+      const branch = refs.split('\n').find(e => isLocalRef(e, branchName))
 
-      process.stdout.write(`${oid} ${branch}\n`) // echoes origin ref oid for local ref name, that means: push local ref to remote branch
+      if (branchName === 'HEAD') {
+        if (branch) process.stdout.write(`${oid} HEAD\n`)
+      } else {
+        if (branch) process.stdout.write(`${oid} ${branch.split(' ')[1]}\n`) // echoes origin ref oid for local ref name, that means: push local ref to remote branch
+      }
     }
   })
 
@@ -51,7 +60,7 @@ async function listForPush () {
 async function push (refs) {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
-  const bypassKey = await client.request('push-request', Buffer.alloc(0))
+  const bypassKey = await client.request('proxy-key-request', Buffer.alloc(0))
 
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
@@ -76,7 +85,7 @@ async function push (refs) {
 async function fetch (refs) {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
-  const proxyKey = await client.request('push-request', Buffer.alloc(0))
+  const proxyKey = await client.request('proxy-key-request', Buffer.alloc(0))
 
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(Buffer.from(proxyKey, 'hex'))
