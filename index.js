@@ -29,7 +29,6 @@ async function list () {
 }
 
 async function listForPush () {
-  // TODO
   process.stdout.write('\n')
 }
 
@@ -41,13 +40,13 @@ async function push (refs) {
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
 
-  const cmd = spawn('git', ['send-pack', '--stdin', `git://127.0.0.1:${port}${repository}`])
+  const args = ['send-pack', '--stdin', `git://127.0.0.1:${port}${repository}`]
+  const force = refs[0][0] === '+'
+  if (force) args.splice(1, 0, '--force')
+
+  const cmd = spawn('git', args)
   refs.forEach(ref => cmd.stdin.write(`${ref.split(':')[1]}:${ref.split(':')[1]}\n`))
   cmd.stdin.end()
-
-  cmd.stderr.on('data', async data => { // for some reason, git uses stderr for the normal output
-    process.stderr.write(data.toString())
-  })
 
   cmd.on('exit', () => {
     refs.forEach(ref => {
@@ -87,10 +86,7 @@ const main = async (args) => {
   let remoteRefs = []
   const wantedRefs = []
   const pushRefs = []
-  let fetching = false
-  let pushing = false
   for await (const line of readline.createInterface({ input: process.stdin, crlfDelay })) {
-    console.error('line', line)
     const command = line.split(' ')[0]
     switch (command) {
       case 'capabilities':
@@ -103,16 +99,14 @@ const main = async (args) => {
         remoteRefs = line === 'list' ? await list() : listForPush()
         break
       case 'push':
-        pushing = true
         pushRefs.push(line.split(' ')[1])
         break
       case 'fetch':
-        fetching = true
         wantedRefs.push(remoteRefs.find(ref => ref.name === line.split(' ')[2]))
         break
       case '':
-        if (fetching) fetch(wantedRefs)
-        else if (pushing) push(pushRefs)
+        if (wantedRefs.length > 0) fetch(wantedRefs)
+        else if (pushRefs.length > 0) push(pushRefs)
         else process.exit()
         break
       default:
