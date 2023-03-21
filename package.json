@@ -19,12 +19,13 @@
     "standard": "^17.0.0"
   },
   "dependencies": {
-    "@hyperswarm/dht": "^6.5.1",
     "@hyperswarm/rpc": "^3.1.0",
     "compact-encoding": "^2.11.0",
     "compact-encoding-struct": "^1.3.0",
+    "hyperdht": "^6.5.2",
+    "keypear": "^1.1.1",
     "ready-resource": "^1.0.0",
-    "simple-hyperproxy": "^0.0.4",
+    "simple-hyperproxy": "^0.0.6",
     "sodium-universal": "^4.0.0",
     "streamx": "^2.13.2",
     "subcommand": "^2.1.1"

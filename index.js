@@ -9,6 +9,9 @@ const { spawn, execSync } = require('child_process')
 const SimpleHyperProxy = require('simple-hyperproxy')
 const { dirname } = require('path')
 const { join } = require('path')
+const Keychain = require('keypear')
+
+const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 
 const argv = process.argv.slice(0)
 const url = argv[3]
@@ -58,10 +61,7 @@ async function listForPush () {
 }
 
 async function push (refs) {
-  const rpc = new RPC()
-  const client = rpc.connect(Buffer.from(key, 'hex'))
-  const bypassKey = await client.request('proxy-key-request', Buffer.alloc(0))
-
+  const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE) // derive key from pk
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
 
@@ -83,12 +83,9 @@ async function push (refs) {
 }
 
 async function fetch (refs) {
-  const rpc = new RPC()
-  const client = rpc.connect(Buffer.from(key, 'hex'))
-  const proxyKey = await client.request('proxy-key-request', Buffer.alloc(0))
-
+  const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE) // derive key from pk
   const proxy = new SimpleHyperProxy()
-  const port = await proxy.bind(Buffer.from(proxyKey, 'hex'))
+  const port = await proxy.bind(bypassKey.publicKey)
 
   writeFileSync('/tmp/refs', refs.map(e => e.id).join('\n')) // TODO random name
 

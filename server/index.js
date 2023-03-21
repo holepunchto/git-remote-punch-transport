@@ -2,38 +2,36 @@ const b4a = require('b4a')
 const { crypto_generichash } = require('sodium-universal') // eslint-disable-line
 const c = require('compact-encoding')
 const RPC = require('@hyperswarm/rpc')
-const DHT = require('@hyperswarm/dht')
+const DHT = require('hyperdht')
 const { execSync } = require('child_process')
 const { join } = require('path')
 const { refsList } = require('../lib/messages.js')
 const ReadyResource = require('ready-resource')
 const SimpleHyperProxy = require('simple-hyperproxy')
+const Keychain = require('keypear')
 
 const GIT_PROTOCOL_PORT = 9418
+const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 
 module.exports = class GitPunchServer extends ReadyResource {
   constructor (seed, opts = {}) {
     super()
     this.keyPair = seed ? DHT.keyPair(hash(Buffer.from(seed))) : DHT.keyPair()
-    this._proxyPublicKey = null
+    this._keychain = new Keychain(this.keyPair)
     this._server = new RPC({ keyPair: this.keyPair }).createServer()
-    this._proxy = new SimpleHyperProxy()
-    this.basedir = opts.basedir || '/'
+    this._proxy = new SimpleHyperProxy({ keyPair: this._keychain.get(GIT_PUNCH_SERVER_NAMESPACE) })
+    this._basedir = opts.basedir || '/'
 
     this._server.respond('list', (req) => {
       const repository = req.toString()
       const refs = this.getRefs(repository)
       return c.encode(refsList, { refs })
     })
-
-    this._server.respond('proxy-key-request', async (req) => {
-      return this._proxyPublicKey
-    })
   }
 
   getRefs (repository) {
     try {
-      const cwd = join(this.basedir, repository)
+      const cwd = join(this._basedir, repository)
       const head = execSync('git rev-parse HEAD', { cwd }).toString().trim()
       const list = execSync('git show-ref', { cwd }).toString().split('\n')
       list.pop() // remove empty line

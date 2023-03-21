@@ -59,7 +59,7 @@ function printHelp () {
 
   ${ansi.bold('seed')}: Sets dht server key pair seed.
   ${ansi.bold('bootstrap')}: Sets dht bootstrap server.
-  ${ansi.bold('basedir')}: Sets repositories base directory, example: ${ansi.dim('--basedir /tmp')} converts /tmp/repo into /repo
+  ${ansi.bold('basedir')}: Remaps path requests as relative to given path, example: ${ansi.dim('--basedir /tmp')} converts /tmp/repo into /repo
 
 `)
   process.exit()
