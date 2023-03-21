@@ -3,14 +3,14 @@ const { crypto_generichash } = require('sodium-universal') // eslint-disable-lin
 const c = require('compact-encoding')
 const RPC = require('@hyperswarm/rpc')
 const DHT = require('hyperdht')
-const { execSync } = require('child_process')
+const { execSync, spawn } = require('child_process')
 const { join } = require('path')
 const { refsList } = require('../lib/messages.js')
 const ReadyResource = require('ready-resource')
 const SimpleHyperProxy = require('simple-hyperproxy')
 const Keychain = require('keypear')
+const { createServer } = require('net')
 
-const GIT_PROTOCOL_PORT = 9418
 const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 
 module.exports = class GitPunchServer extends ReadyResource {
@@ -44,7 +44,9 @@ module.exports = class GitPunchServer extends ReadyResource {
 
   async _open () {
     await this._server.listen(this._keyPair)
-    this._proxyPublicKey = await this._proxy.expose(GIT_PROTOCOL_PORT)
+    const port = await findFreePort()
+    spawn('git', ['daemon', '--enable=receive-pack', `--port=${port}`, `--base-path=${this._basedir}`])
+    this._proxyPublicKey = await this._proxy.expose(port)
   }
 
   async _close () {
@@ -57,4 +59,14 @@ function hash (data) {
   const out = b4a.allocUnsafe(32)
   crypto_generichash(out, data) // eslint-disable-line
   return out
+}
+
+function findFreePort () {
+  return new Promise((resolve) => {
+    const server = createServer()
+    server.listen(0, () => {
+      const port = server.address().port
+      server.close(() => resolve(port))
+    })
+  })
 }
