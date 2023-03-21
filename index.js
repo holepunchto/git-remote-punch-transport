@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { writeFileSync, readFileSync } = require('fs')
+const { readFileSync } = require('fs')
 const RPC = require('@hyperswarm/rpc')
 const readline = require('readline')
 const c = require('compact-encoding')
@@ -22,6 +22,8 @@ const capabilities = () => {
   process.stdout.write('option\nfetch\npush\nlist\n\n')
 }
 
+// Called on fetch (clone, pull), echoes a list of the remote refs
+
 async function list () {
   const rpc = new RPC()
   const client = rpc.connect(Buffer.from(key, 'hex'))
@@ -31,6 +33,8 @@ async function list () {
   process.stdout.write('\n')
   return refs
 }
+
+// Called on push, echoes a list of remote-oid to be updated with local ref
 
 async function listForPush () {
   const refs = execSync('git show-ref').toString().trim()
@@ -52,7 +56,7 @@ async function listForPush () {
       if (branchName === 'HEAD') {
         if (branch) process.stdout.write(`${oid} HEAD\n`)
       } else {
-        if (branch) process.stdout.write(`${oid} ${branch.split(' ')[1]}\n`) // echoes origin ref oid for local ref name, that means: push local ref to remote branch
+        if (branch) process.stdout.write(`${oid} ${branch.split(' ')[1]}\n`)
       }
     }
   })
@@ -60,10 +64,12 @@ async function listForPush () {
   process.stdout.write('\n')
 }
 
+// Derive bypass git daemon key, sets local proxy and send the pushed refs via send-pack
+
 async function push (refs) {
-  const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE) // derive key from pk
+  const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE)
   const proxy = new SimpleHyperProxy()
-  const port = await proxy.bind(Buffer.from(bypassKey, 'hex'))
+  const port = await proxy.bind(bypassKey.publicKey)
 
   const args = ['send-pack', '--stdin', `git://127.0.0.1:${port}${repository}`]
   const force = refs[0][0] === '+'
@@ -72,6 +78,15 @@ async function push (refs) {
   const cmd = spawn('git', args)
   refs.forEach(ref => cmd.stdin.write(`${ref.split(':')[1]}:${ref.split(':')[1]}\n`))
   cmd.stdin.end()
+
+  // for some reason, send-pack uses stderr for the normal output
+
+  cmd.stderr.on('data', data => {
+    process.stderr.write(data.toString())
+    if (data.toString().indexOf('fatal') !== -1 || data.toString().indexOf('error') !== -1) {
+      process.exit() // kill this process and stop the push operation
+    }
+  })
 
   cmd.on('exit', () => {
     refs.forEach(ref => {
@@ -82,19 +97,24 @@ async function push (refs) {
   })
 }
 
+// Derive bypass git daemon key, sets local proxy and fetch wanted refs via fetch-pack
+
 async function fetch (refs) {
   const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE) // derive key from pk
   const proxy = new SimpleHyperProxy()
   const port = await proxy.bind(bypassKey.publicKey)
 
-  writeFileSync('/tmp/refs', refs.map(e => e.id).join('\n')) // TODO random name
-
   const cmd = spawn('git', ['fetch-pack', '--stdin', `git://127.0.0.1:${port}${repository}`], { cwd: dirname(process.env.GIT_DIR) })
-  cmd.stdin.write(readFileSync('/tmp/refs'))
+  refs.map(e => e.id + '\n').forEach(e => cmd.stdin.write(e))
   cmd.stdin.end()
 
-  cmd.stderr.on('data', async data => { // for some reason, git uses stderr for the normal output
+  // for some reason, fetch-pack uses stderr for the normal output
+
+  cmd.stderr.on('data', data => {
     process.stderr.write(data.toString())
+    if (data.toString().indexOf('fatal') !== -1 || data.toString().indexOf('error') !== -1) {
+      process.exit() // kill this process and stop the fetch operation
+    }
   })
 
   cmd.on('exit', () => {
@@ -102,6 +122,8 @@ async function fetch (refs) {
     process.exit()
   })
 }
+
+// Git communicates with the remote helper using new line based protocol, check https://git-scm.com/docs/gitremote-helpers
 
 const main = async (args) => {
   const crlfDelay = 30000
@@ -115,10 +137,11 @@ const main = async (args) => {
         capabilities()
         break
       case 'option':
-        process.stdout.write('ok\n')
+        process.stdout.write('ok\n') // TODO support different options
         break
       case 'list':
-        remoteRefs = line === 'list' ? await list() : listForPush()
+        if (line === 'list') remoteRefs = await list()
+        else listForPush()
         break
       case 'push':
         pushRefs.push(line.split(' ')[1])
