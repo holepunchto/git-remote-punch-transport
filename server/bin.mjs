@@ -3,6 +3,8 @@
 import subcommand from 'subcommand'
 import GitPunchServer from './index.js'
 import { ansi } from '../lib/ansi.js'
+import cenc from 'compact-encoding'
+import { punchConnection } from 'punch-connection-encoding'
 
 const commands = [
   {
@@ -12,12 +14,13 @@ const commands = [
         printHelp()
         process.exit(0)
       } else {
-        const seed = process.argv.slice()[2]
+        const seed = args.seed
         const bootstrap = args.bootstrap ? args.bootstrap.split(',').map(e => ({ host: e.split(':')[0], port: parseInt(e.split(':')[1]) })) : null
         const basedir = args.basedir
         const server = new GitPunchServer(seed, { bootstrap, basedir })
         await server.ready()
-        console.log(`Listening on key: ${ansi.bold(server.keyPair.publicKey.toString('hex'))}`)
+        const key = !bootstrap ? server.keyPair.publicKey.toString('hex') : cenc.encode(punchConnection, { publicKey: server.keyPair.publicKey, bootstrap }).toString('hex')
+        console.log(`Listening on key: ${key}`)
       }
     },
     options: [

@@ -10,13 +10,16 @@ const SimpleHyperProxy = require('simple-hyperproxy')
 const { dirname } = require('path')
 const { join } = require('path')
 const Keychain = require('keypear')
+const { punchConnection } = require('punch-connection-encoding')
 
 const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 
 const argv = process.argv.slice(0)
 const url = argv[3]
-const key = url.substr(8, 64)
-const repository = url.substr(72)
+const decodeUrl = (url) => c.decode(punchConnection, Buffer.from(url.substring(8, url.indexOf('/', 8)), 'hex'))
+const key = url.indexOf('/', 8) === 72 ? url.substr(8, 64) : decodeUrl(url).publicKey.toString('hex')
+const bootstrap = url.indexOf('/', 8) === 72 ? null : decodeUrl(url).bootstrap.map(e => e.host + ':' + e.port)
+const repository = url.substr(url.indexOf('/', 8))
 
 const capabilities = () => {
   process.stdout.write('option\nfetch\npush\nlist\n\n')
@@ -25,7 +28,7 @@ const capabilities = () => {
 // Called on fetch (clone, pull), echoes a list of the remote refs
 
 async function list () {
-  const rpc = new RPC()
+  const rpc = new RPC({ bootstrap })
   const client = rpc.connect(Buffer.from(key, 'hex'))
   const response = await client.request('list', Buffer.from(repository))
   const { refs } = c.decode(refsList, response)
@@ -68,7 +71,7 @@ async function listForPush () {
 
 async function push (refs) {
   const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE)
-  const proxy = new SimpleHyperProxy()
+  const proxy = new SimpleHyperProxy({ bootstrap })
   const port = await proxy.bind(bypassKey.publicKey)
 
   const args = ['send-pack', '--stdin', `git://127.0.0.1:${port}${repository}`]
@@ -101,7 +104,7 @@ async function push (refs) {
 
 async function fetch (refs) {
   const bypassKey = new Keychain(Buffer.from(key, 'hex')).get(GIT_PUNCH_SERVER_NAMESPACE) // derive key from pk
-  const proxy = new SimpleHyperProxy()
+  const proxy = new SimpleHyperProxy({ bootstrap })
   const port = await proxy.bind(bypassKey.publicKey)
 
   const cmd = spawn('git', ['fetch-pack', '--stdin', `git://127.0.0.1:${port}${repository}`], { cwd: dirname(process.env.GIT_DIR) })

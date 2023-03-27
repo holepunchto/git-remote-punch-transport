@@ -18,8 +18,8 @@ module.exports = class GitPunchServer extends ReadyResource {
     super()
     this.keyPair = seed ? DHT.keyPair(hash(Buffer.from(seed))) : DHT.keyPair()
     this._keychain = new Keychain(this.keyPair)
-    this._server = new RPC({ keyPair: this.keyPair }).createServer()
-    this._proxy = new SimpleHyperProxy({ keyPair: this._keychain.get(GIT_PUNCH_SERVER_NAMESPACE) })
+    this._server = new RPC({ keyPair: this.keyPair, ...opts }).createServer()
+    this._proxy = new SimpleHyperProxy({ keyPair: this._keychain.get(GIT_PUNCH_SERVER_NAMESPACE), ...opts })
     this._basedir = opts.basedir || '/'
 
     this._server.respond('list', (req) => {
