@@ -17,8 +17,8 @@ const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 const argv = process.argv.slice(0)
 const url = argv[3]
 const decodeUrl = (url) => c.decode(punchConnection, Buffer.from(url.substring(8, url.indexOf('/', 8)), 'hex'))
-const key = url.indexOf('/', 8) === 72 ? url.substr(8, 64) : decodeUrl(url).publicKey.toString('hex')
-const bootstrap = url.indexOf('/', 8) === 72 ? null : decodeUrl(url).bootstrap.map(e => e.host + ':' + e.port)
+const key = decodeUrl(url).publicKey.toString('hex')
+const bootstrap = decodeUrl(url).bootstrap.map(e => e.host + ':' + e.port)
 const repository = url.substr(url.indexOf('/', 8))
 
 const capabilities = () => {
