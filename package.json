@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Git over holepunch remote helper.",
   "bin": {
-    "git-punch-server": "./server/bin.mjs",
-    "git-remote-punch": "./index.js"
+    "git-punch-server": "server/bin.mjs",
+    "git-remote-punch": "index.js"
   },
   "scripts": {
     "test": "brittle test/index.test.js",
@@ -30,5 +30,18 @@
     "sodium-universal": "^4.0.0",
     "streamx": "^2.13.2",
     "subcommand": "^2.1.1"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/git-remote-punch-transport.git"
+  },
+  "bugs": {
+    "url": "https://github.com/holepunchto/git-remote-punch-transport/issues"
+  },
+  "homepage": "https://github.com/holepunchto/git-remote-punch-transport#readme"
 }
