@@ -4,7 +4,7 @@ import subcommand from 'subcommand'
 import GitPunchServer from './index.js'
 import { ansi } from '../lib/ansi.js'
 import cenc from 'compact-encoding'
-import { punchConnection } from 'punch-connection-encoding'
+import { punchConnection } from '@holepunchto/punch-connection-encoding'
 
 const commands = [
   {

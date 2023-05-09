@@ -10,7 +10,7 @@ const SimpleHyperProxy = require('simple-hyperproxy')
 const { dirname } = require('path')
 const { join } = require('path')
 const Keychain = require('keypear')
-const { punchConnection } = require('punch-connection-encoding')
+const { punchConnection } = require('@holepunchto/punch-connection-encoding')
 
 const GIT_PUNCH_SERVER_NAMESPACE = 'git-remote-punch'
 

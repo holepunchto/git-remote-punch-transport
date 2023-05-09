@@ -1,5 +1,5 @@
 {
-  "name": "git-remote-punch",
+  "name": "@holepunchto/git-remote-punch",
   "version": "0.1.0",
   "description": "Git over holepunch remote helper.",
   "bin": {
@@ -24,7 +24,7 @@
     "compact-encoding-struct": "^1.3.0",
     "hyperdht": "^6.5.2",
     "keypear": "^1.1.1",
-    "punch-connection-encoding": "github:holepunchto/punch-connection-encoding",
+    "@holepunchto/punch-connection-encoding": "1.0.0",
     "ready-resource": "^1.0.0",
     "simple-hyperproxy": "^0.0.6",
     "sodium-universal": "^4.0.0",
