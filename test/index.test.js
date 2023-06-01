@@ -1,4 +1,4 @@
-const createTestnet = require('@hyperswarm/testnet')
+const createTestnet = require('hyperdht/testnet')
 const test = require('brittle')
 const { tmpdir } = require('os')
 const { join } = require('path')
