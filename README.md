@@ -9,8 +9,9 @@ git clone punch://public-key:repository
 
 ## Server
 
-The client of this remote helper depends on the repository server running `git-punch-server`. This server is reponsible of packet negotiation and git daemon forwarding.
-The server spawns a 
+The client of this remote helper depends on the repository server running git-punch-server. This server is responsible for packet negotiation and Git daemon forwarding.
+
+To start the server, run:
 
 To start the server run:
 
